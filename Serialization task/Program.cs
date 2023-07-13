@@ -41,6 +41,13 @@ namespace Serialization_task
     {
         private static readonly Random rnd = new();
 
+        static JsonSerializerOptions serializeOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true,
+            MaxDepth = 5
+        };
+
         private static Person GenerateRandomPerson(int i)
         {
             int month = rnd.Next(1, 12);
@@ -52,11 +59,11 @@ namespace Serialization_task
 
             var person = new Person()
             {
-                Id = -1,
+                Id = i,
                 TransportId = Guid.NewGuid(),
                 FirstName = $"FirstName{i}",
                 LastName = $"LastName{i}",
-                SequenceId = -1,
+                SequenceId = i,
                 CreditCardNumbers = new[] { $"{i}", $"{i + 1}" },
                 Age = age,
                 Phones = new[] { $"+7{i}" },
@@ -94,10 +101,25 @@ namespace Serialization_task
             return persons;
         }
 
+        public static string PersonJsonSerialize(List<Person> persons)
+        {
+            var jsonString = JsonSerializer.Serialize<List<Person>>(persons, serializeOptions);
+
+            return jsonString;
+        }
+
+        public static List<Person> PersonJsonDeserialize(string jsonString)
+        {
+            var persons = JsonSerializer.Deserialize<List<Person>>(jsonString, serializeOptions);
+
+            return persons;
+        }
+
         static void Main(string[] args)
         {
             // Directory selection by user
             string path;
+            string fileName;
 
             while (true)
             {
@@ -107,62 +129,56 @@ namespace Serialization_task
 
                 if (Directory.Exists(path))
                 {
+                    fileName = $"{path}\\Persons.json";
+
                     break;
                 }
 
                 Console.WriteLine("Invalid path");
             }
 
-            var fileName = $"{path}\\Persons.json";
-
             // Generation of 10000 random objects
             var persons = GenerateListRandomPersons(10000);
 
             // Convert list to JSON and create Persons.json
-            var serializeOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = true,
-                MaxDepth = 4
-            };
-
-            var jsonString = JsonSerializer.Serialize(persons, serializeOptions);
-
+            var jsonString = PersonJsonSerialize(persons);
             File.WriteAllText(fileName, jsonString);
-            
 
             // Clear memory
             persons.Clear();
 
             // Read objects from file
             jsonString = File.ReadAllText(fileName);
-            persons = JsonSerializer.Deserialize<List<Person>>(jsonString, serializeOptions);
+            persons = PersonJsonDeserialize(jsonString);
 
             // Display in console persons count, persons credit card count, the average value of child age
-            var personsCreditCardCount = 0;
-            var childCount = 0;
-            var ageSum = 0;
-
-            foreach (var p in persons)
+            if (persons.Count > 0)
             {
-                personsCreditCardCount += p.CreditCardNumbers.Length;
+                var personsCreditCardCount = 0;
+                var childCount = 0;
+                var ageSum = 0;
 
-                if (p.Children != null)
+                foreach (var p in persons)
                 {
-                    childCount += p.Children.Length;
-                    foreach (var child in p.Children)
-                    {
-                        var unixTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
-                        var birthDate = unixTime.AddSeconds(child.BirthDate).ToUniversalTime();
+                    personsCreditCardCount += p.CreditCardNumbers.Length;
 
-                        ageSum += DateTime.UtcNow.Year - birthDate.Year;
+                    if (p.Children != null)
+                    {
+                        childCount += p.Children.Length;
+                        foreach (var child in p.Children)
+                        {
+                            var unixTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
+                            var birthDate = unixTime.AddSeconds(child.BirthDate).ToUniversalTime();
+
+                            ageSum += DateTime.UtcNow.Year - birthDate.Year;
+                        }
                     }
                 }
-            }
 
-            Console.WriteLine($"Persons count: {persons.Count}");
-            Console.WriteLine($"Persons credit card count: {personsCreditCardCount}");
-            Console.WriteLine($"Average value of child age: {ageSum / childCount}");
+                Console.WriteLine($"Persons count: {persons.Count}");
+                Console.WriteLine($"Persons credit card count: {personsCreditCardCount}");
+                Console.WriteLine($"Average value of child age: {ageSum / childCount}");
+            }
         }
     }
 }
